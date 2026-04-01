@@ -4,28 +4,49 @@ A Java 21 / Quarkus project using Apache Camel to ingest flat files (CSV, HL7v2)
 
 ## Architecture
 
+```mermaid
+flowchart TD
+    FTP["🗂️ FTP Server\n(CSV / HL7v2 files)"]
+    ROUTER{"Content-Based Router\n(by file extension)"}
+    CSV["CSV Parser\n(Bindy)"]
+    SYNTHEA["Synthea CSV Parser"]
+    HL7["HL7v2 Parser\n(HAPI)"]
+    MODEL["Normalized Model\n(Patient, Observation, ClinicalDocument)"]
+
+    FTP --> ROUTER
+    ROUTER -->|.csv| CSV
+    ROUTER -->|synthea-*.csv| SYNTHEA
+    ROUTER -->|.hl7| HL7
+
+    CSV --> MODEL
+    SYNTHEA --> MODEL
+    HL7 --> MODEL
+
+    MODEL --> REST["🌐 REST API\n(Platform HTTP)"]
+    MODEL --> SOAP["📄 SOAP\n(CXF / WSDL)"]
+    MODEL --> MLLP["🏥 HL7 MLLP\n(TCP)"]
+    MODEL --> FHIR["🔥 FHIR R4\n(HAPI FHIR)"]
+    MODEL --> JMS["📨 JMS\n(ActiveMQ Artemis)"]
+    MODEL --> KAFKA["📡 Kafka\n(Event Streaming)"]
 ```
-  FTP Server (CSV / HL7v2 files)
-         │
-         ▼
-  ┌──────────────────────┐
-  │  Content-Based Router │
-  │  (by file extension) │
-  └──────┬───────┬───────┘
-         │       │
-    CSV Parser  HL7 Parser
-    (Bindy)     (HAPI v2)
-         │       │
-         ▼       ▼
-  ┌──────────────────────┐
-  │  Normalized Model    │
-  │  (Patient, Obs...)   │
-  └──────────┬───────────┘
-             │
-     ┌───────┼───────┬──────┬──────┬──────┐
-     ▼       ▼       ▼      ▼      ▼      ▼
-   REST    SOAP    MLLP   FHIR   JMS   Kafka
-   API     (CXF)  (HL7)   (R4)  (AMQ)
+
+## Infrastructure
+
+```mermaid
+graph LR
+    subgraph Docker Compose
+        FTP_SRV["Pure-FTPd\n:21"]
+        AMQ["ActiveMQ Artemis\n:61616 / :8161"]
+        KFK["Kafka (KRaft)\n:9092"]
+        FHIR_SRV["HAPI FHIR Server\n:8090"]
+        MLLP_RCV["MLLP Receiver\n:2575"]
+    end
+
+    APP["Camel Data Layer\n:8080"] --> FTP_SRV
+    APP --> AMQ
+    APP --> KFK
+    APP --> FHIR_SRV
+    APP --> MLLP_RCV
 ```
 
 ## Output Connectors
@@ -130,13 +151,20 @@ curl -X POST http://localhost:8080/soap/PatientService \
 
 ## Project Structure
 
-```
-src/main/java/com/healthcare/datalayer/
-├── config/          AppConfig (ObjectMapper, in-memory stores)
-├── model/           Patient, Observation, ClinicalDocument
-├── processor/       CSV/HL7/FHIR/SOAP processors
-├── route/           Camel routes (FTP, REST, SOAP, MLLP, FHIR, JMS, Kafka)
-└── soap/            JAX-WS service interface & implementation
+```mermaid
+graph LR
+    subgraph "src/main/java/com/healthcare/datalayer/"
+        CONFIG["config/\nAppConfig, ObjectMapper, stores"]
+        MODEL["model/\nPatient, Observation,\nClinicalDocument, SyntheaPatient"]
+        PROC["processor/\nCSV · HL7 · FHIR · SOAP\n· Synthea processors"]
+        ROUTE["route/\nFTP · REST · SOAP · MLLP\n· FHIR · JMS · Kafka"]
+        SOAP_PKG["soap/\nPatientService interface\n& implementation"]
+    end
+
+    CONFIG --- MODEL
+    MODEL --- PROC
+    PROC --- ROUTE
+    ROUTE --- SOAP_PKG
 ```
 
 ## Configuration
