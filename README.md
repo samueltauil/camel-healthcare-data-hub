@@ -277,14 +277,55 @@ mvn test
 
 ## Building for Production
 
-```bash
-# JVM build
-mvn package -DskipTests
-java -jar target/quarkus-app/quarkus-run.jar
+### JVM mode
 
-# Docker build
-docker build -t camel-data-layer .
-docker run -p 8080:8080 camel-data-layer
+```bash
+mvn clean package -DskipTests
+```
+
+This produces a fast-jar distribution in `target/quarkus-app/`. Run it with:
+
+```bash
+java -jar target/quarkus-app/quarkus-run.jar
+```
+
+Override configuration at runtime using environment variables or system properties:
+
+```bash
+java \
+  -Dftp.host=prod-ftp.example.com \
+  -Dquarkus.artemis.url=tcp://activemq.example.com:61616 \
+  -Dkafka.bootstrap.servers=kafka.example.com:9092 \
+  -Dfhir.server.url=https://fhir.example.com/fhir \
+  -jar target/quarkus-app/quarkus-run.jar
+```
+
+### Docker
+
+```bash
+# Build the image (multi-stage: Maven build → JRE-alpine runtime)
+docker build -t camel-healthcare-data-hub .
+
+# Run standalone
+docker run -p 8080:8080 camel-healthcare-data-hub
+
+# Run with custom config
+docker run -p 8080:8080 \
+  -e FTP_HOST=prod-ftp.example.com \
+  -e QUARKUS_ARTEMIS_URL=tcp://activemq:61616 \
+  -e KAFKA_BOOTSTRAP_SERVERS=kafka:9092 \
+  -e FHIR_SERVER_URL=http://fhir:8080/fhir \
+  camel-healthcare-data-hub
+```
+
+### Docker Compose (full stack)
+
+```bash
+# Start infrastructure + app together
+docker-compose up -d
+
+# Rebuild after code changes
+docker-compose up -d --build
 ```
 
 ## Sample Data
