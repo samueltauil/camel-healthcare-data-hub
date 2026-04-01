@@ -108,15 +108,25 @@ fi
 # -----------------------------------------------------------
 mkdir -p "$FTP_SEED_DIR"
 
-# Pick CSV patients file for FTP upload testing
+# CSV files — prefix with "synthea-" so the Camel router uses the Synthea CSV parser
 if [[ -f "$SAMPLE_DATA_DIR/csv/synthea/patients.csv" ]]; then
     cp "$SAMPLE_DATA_DIR/csv/synthea/patients.csv" "$FTP_SEED_DIR/synthea-patients.csv"
 fi
+if [[ -f "$SAMPLE_DATA_DIR/csv/synthea/observations.csv" ]]; then
+    cp "$SAMPLE_DATA_DIR/csv/synthea/observations.csv" "$FTP_SEED_DIR/synthea-observations.csv"
+fi
+if [[ -f "$SAMPLE_DATA_DIR/csv/synthea/conditions.csv" ]]; then
+    cp "$SAMPLE_DATA_DIR/csv/synthea/conditions.csv" "$FTP_SEED_DIR/synthea-conditions.csv"
+fi
 
-# Copy first 5 HL7 files
-for f in $(ls "$SAMPLE_DATA_DIR/hl7/synthea/"*.hl7 2>/dev/null | head -5); do
+# HL7 files — copy up to 10
+count=0
+for f in $(ls "$SAMPLE_DATA_DIR/hl7/synthea/"*.hl7 2>/dev/null | head -10); do
     cp "$f" "$FTP_SEED_DIR/"
+    count=$((count + 1))
 done
+
+seed_count=$(ls "$FTP_SEED_DIR" 2>/dev/null | wc -l)
 
 info ""
 info "=== Generation Complete ==="
@@ -124,7 +134,7 @@ info "  Population:    $POPULATION patients"
 info "  CSV files:     $SAMPLE_DATA_DIR/csv/synthea/"
 info "  FHIR bundles:  $SAMPLE_DATA_DIR/fhir/synthea/"
 info "  HL7 messages:  $SAMPLE_DATA_DIR/hl7/synthea/"
-info "  FTP seed dir:  $FTP_SEED_DIR/"
+info "  FTP seed dir:  $FTP_SEED_DIR/ ($seed_count files ready)"
 info ""
 info "To upload seed data to FTP:"
 info "  ./scripts/seed-ftp.sh"

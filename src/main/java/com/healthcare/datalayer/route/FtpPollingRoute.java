@@ -116,7 +116,7 @@ public class FtpPollingRoute extends RouteBuilder {
          *   3. *.hl7          → HL7v2 pipe-delimited message processor
          *   4. anything else  → logged as a warning and skipped
          */
-        from("ftp://%s:%d/%s?username=%s&password=%s&delay=%d&move=.done&moveFailed=.error&idempotent=true&noop=false&delete=false"
+        from("ftp://%s:%d/%s?username=%s&password=%s&delay=%d&passiveMode=true&move=.done&moveFailed=.error&idempotent=true&noop=false&delete=false"
                 .formatted(ftpHost, ftpPort, ftpDirectory, ftpUsername, ftpPassword, pollDelay))
                 .routeId("ftp-polling")
                 .log("Received file from FTP: ${header.CamelFileName}")
