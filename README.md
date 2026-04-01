@@ -1,6 +1,6 @@
 <div align="center">
 
-# 🏥 Camel Healthcare Data Hub
+# Camel Healthcare Data Hub
 
 **A turnkey integration platform that bridges legacy healthcare flat files with modern APIs and messaging systems.**
 
@@ -23,7 +23,7 @@ Synthetic patient data powered by [Synthea](https://github.com/synthetichealth/s
 
 ```mermaid
 flowchart TD
-    FTP["🗂️ FTP Server\n(CSV / HL7v2 files)"]
+    FTP["FTP Server\n(CSV / HL7v2 files)"]
     ROUTER{"Content-Based Router\n(by file extension)"}
     CSV["CSV Parser\n(Bindy)"]
     SYNTHEA["Synthea CSV Parser"]
@@ -39,12 +39,12 @@ flowchart TD
     SYNTHEA --> MODEL
     HL7 --> MODEL
 
-    MODEL --> REST["🌐 REST API\n(Platform HTTP)"]
-    MODEL --> SOAP["📄 SOAP\n(CXF / WSDL)"]
-    MODEL --> MLLP["🏥 HL7 MLLP\n(TCP)"]
-    MODEL --> FHIR["🔥 FHIR R4\n(HAPI FHIR)"]
-    MODEL --> JMS["📨 JMS\n(ActiveMQ Artemis)"]
-    MODEL --> KAFKA["📡 Kafka\n(Event Streaming)"]
+    MODEL --> REST["REST API\n(Platform HTTP)"]
+    MODEL --> SOAP["SOAP\n(CXF / WSDL)"]
+    MODEL --> MLLP["HL7 MLLP\n(TCP)"]
+    MODEL --> FHIR["FHIR R4\n(HAPI FHIR)"]
+    MODEL --> JMS["JMS\n(ActiveMQ Artemis)"]
+    MODEL --> KAFKA["Kafka\n(Event Streaming)"]
 ```
 
 ## Infrastructure
