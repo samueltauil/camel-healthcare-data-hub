@@ -11,6 +11,7 @@
 # Examples:
 #   ./scripts/generate-synthea-data.sh          # 20 patients, Massachusetts
 #   ./scripts/generate-synthea-data.sh 50 Texas  # 50 patients, Texas
+#   ./scripts/generate-synthea-data.sh --force   # regenerate even if data exists
 # ============================================================
 
 set -euo pipefail
@@ -23,9 +24,6 @@ SYNTHEA_JAR="synthea-with-dependencies.jar"
 SYNTHEA_DIR="$PROJECT_DIR/.synthea"
 SYNTHEA_OUTPUT="$SYNTHEA_DIR/output"
 
-POPULATION="${1:-20}"
-STATE="${2:-Massachusetts}"
-
 SAMPLE_DATA_DIR="$PROJECT_DIR/sample-data"
 FTP_SEED_DIR="$PROJECT_DIR/sample-data/ftp-seed"
 
@@ -35,6 +33,32 @@ NC='\033[0m'
 
 info()  { echo -e "${GREEN}[INFO]${NC}  $*"; }
 warn()  { echo -e "${YELLOW}[WARN]${NC}  $*"; }
+
+# Handle --force flag
+FORCE=false
+POSITIONAL=()
+for arg in "$@"; do
+    case "$arg" in
+        --force|-f) FORCE=true ;;
+        *) POSITIONAL+=("$arg") ;;
+    esac
+done
+
+POPULATION="${POSITIONAL[0]:-20}"
+STATE="${POSITIONAL[1]:-Massachusetts}"
+
+# -----------------------------------------------------------
+# 0. Check for existing data
+# -----------------------------------------------------------
+if [[ "$FORCE" == false && -d "$FTP_SEED_DIR" && -n "$(ls -A "$FTP_SEED_DIR" 2>/dev/null)" ]]; then
+    seed_count=$(ls "$FTP_SEED_DIR" 2>/dev/null | wc -l)
+    info "Synthea data already exists ($seed_count files in ftp-seed/)."
+    info "Skipping generation. Use --force to regenerate."
+    info ""
+    info "  FTP seed dir:  $FTP_SEED_DIR/"
+    info "  To upload:     ./scripts/seed-ftp.sh"
+    exit 0
+fi
 
 # -----------------------------------------------------------
 # 1. Download Synthea if not present
@@ -52,7 +76,15 @@ else
 fi
 
 # -----------------------------------------------------------
-# 2. Run Synthea to generate data
+# 2. Clean previous Synthea output to avoid stale data
+# -----------------------------------------------------------
+if [[ -d "$SYNTHEA_OUTPUT" ]]; then
+    info "Cleaning previous Synthea output..."
+    rm -rf "$SYNTHEA_OUTPUT"
+fi
+
+# -----------------------------------------------------------
+# 3. Run Synthea to generate data
 # -----------------------------------------------------------
 info "Generating $POPULATION synthetic patients in $STATE..."
 
@@ -71,9 +103,12 @@ java -jar "$SYNTHEA_JAR" \
     "$STATE"
 
 # -----------------------------------------------------------
-# 3. Copy generated data into project sample-data
+# 4. Copy generated data into project sample-data
 # -----------------------------------------------------------
 info "Copying generated data to sample-data/..."
+
+# Clean previous sample data
+rm -rf "$SAMPLE_DATA_DIR/csv/synthea" "$SAMPLE_DATA_DIR/fhir/synthea" "$SAMPLE_DATA_DIR/hl7/synthea" "$FTP_SEED_DIR"
 
 # CSV files
 mkdir -p "$SAMPLE_DATA_DIR/csv/synthea"
@@ -104,7 +139,7 @@ if [[ -d "$SYNTHEA_OUTPUT/hl7" ]]; then
 fi
 
 # -----------------------------------------------------------
-# 4. Create FTP seed directory (files to upload to FTP)
+# 5. Create FTP seed directory (files to upload to FTP)
 # -----------------------------------------------------------
 mkdir -p "$FTP_SEED_DIR"
 
@@ -120,10 +155,8 @@ if [[ -f "$SAMPLE_DATA_DIR/csv/synthea/conditions.csv" ]]; then
 fi
 
 # HL7 files — copy up to 10
-count=0
 for f in $(ls "$SAMPLE_DATA_DIR/hl7/synthea/"*.hl7 2>/dev/null | head -10); do
     cp "$f" "$FTP_SEED_DIR/"
-    count=$((count + 1))
 done
 
 seed_count=$(ls "$FTP_SEED_DIR" 2>/dev/null | wc -l)
