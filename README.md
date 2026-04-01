@@ -103,7 +103,9 @@ This downloads Synthea, generates CSV/HL7/FHIR data, and places it in `sample-da
 mvn quarkus:dev
 ```
 
-### 4. Seed the FTP server with data
+> **Note:** 10 sample patients from `sample-data/csv/patients.csv` are loaded automatically on startup — no FTP or docker-compose needed to see data in the REST/SOAP endpoints.
+
+### 4. Seed the FTP server with additional data
 
 ```bash
 # Upload Synthea-generated files
@@ -114,30 +116,41 @@ curl -T sample-data/csv/patients.csv ftp://localhost/inbox/ --user healthcare:he
 curl -T sample-data/hl7/adt-a01.hl7 ftp://localhost/inbox/ --user healthcare:healthcare123
 ```
 
-### 5. Query the REST API
+## Testing the Output Connectors
+
+After starting the application with `mvn quarkus:dev`, you can verify each connector:
+
+### REST API
 
 ```bash
-# Health check
-curl http://localhost:8080/api/health
+# Health check — shows counts for all in-memory stores
+curl -s http://localhost:8080/api/health | python3 -m json.tool
+# → {"status": "UP", "patients": 10, "observations": 0, "documents": 1}
 
 # List all patients
-curl http://localhost:8080/api/patients
+curl -s http://localhost:8080/api/patients | python3 -m json.tool
 
-# Get a specific patient
-curl http://localhost:8080/api/patients/P001
+# Get a single patient by ID
+curl -s http://localhost:8080/api/patients/P001 | python3 -m json.tool
 
-# List all documents
-curl http://localhost:8080/api/documents
+# Patient not found → 404
+curl -s -w "\nHTTP %{http_code}\n" http://localhost:8080/api/patients/UNKNOWN
+
+# List ingested documents
+curl -s http://localhost:8080/api/documents | python3 -m json.tool
+
+# OpenAPI spec
+curl -s http://localhost:8080/api/openapi | python3 -m json.tool | head -20
 ```
 
-### 6. Check the SOAP endpoint
+### SOAP (CXF)
 
 ```bash
-# WSDL
-curl http://localhost:8080/soap/PatientService?wsdl
+# Fetch the auto-generated WSDL
+curl -s http://localhost:8080/soap/PatientService?wsdl
 
-# SOAP request
-curl -X POST http://localhost:8080/soap/PatientService \
+# Call getPatient
+curl -s -X POST http://localhost:8080/soap/PatientService \
   -H "Content-Type: text/xml" \
   -d '<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/"
         xmlns:soap="http://healthcare.com/datalayer/soap">
@@ -147,6 +160,106 @@ curl -X POST http://localhost:8080/soap/PatientService \
       </soap:getPatient>
     </soapenv:Body>
   </soapenv:Envelope>'
+
+# Call getAllPatients
+curl -s -X POST http://localhost:8080/soap/PatientService \
+  -H "Content-Type: text/xml" \
+  -d '<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/"
+        xmlns:soap="http://healthcare.com/datalayer/soap">
+    <soapenv:Body>
+      <soap:getAllPatients/>
+    </soapenv:Body>
+  </soapenv:Envelope>'
+
+# Call searchPatients by last name
+curl -s -X POST http://localhost:8080/soap/PatientService \
+  -H "Content-Type: text/xml" \
+  -d '<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/"
+        xmlns:soap="http://healthcare.com/datalayer/soap">
+    <soapenv:Body>
+      <soap:searchPatients>
+        <lastName>Smith</lastName>
+      </soap:searchPatients>
+    </soapenv:Body>
+  </soapenv:Envelope>'
+```
+
+### HL7 MLLP (requires docker-compose)
+
+```bash
+# Start the MLLP receiver
+docker-compose up -d mllp-receiver
+
+# Upload an HL7 file to FTP — it will be parsed and forwarded via MLLP
+curl -T sample-data/hl7/adt-a01.hl7 ftp://localhost/inbox/ --user healthcare:healthcare123
+
+# Watch the MLLP receiver output
+docker logs -f healthcare-mllp-receiver
+```
+
+### FHIR R4 (requires docker-compose)
+
+```bash
+# Start the HAPI FHIR server
+docker-compose up -d fhir
+
+# Wait for FHIR server to start, then check ingested patients
+# (patients are auto-pushed as FHIR Bundles when files are ingested via FTP)
+curl -s http://localhost:8090/fhir/Patient | python3 -m json.tool | head -20
+
+# Browse the FHIR server UI
+open http://localhost:8090
+```
+
+### JMS / ActiveMQ Artemis (requires docker-compose)
+
+```bash
+# Start ActiveMQ Artemis
+docker-compose up -d activemq
+
+# Upload a file via FTP — it will be published to JMS queues/topics
+curl -T sample-data/csv/patients.csv ftp://localhost/inbox/jms-test.csv --user healthcare:healthcare123
+
+# Check the Artemis web console for messages
+open http://localhost:8161
+# Login: artemis / artemis
+# Navigate to Queues → queue.patients to see messages
+```
+
+### Kafka (requires docker-compose)
+
+```bash
+# Start Kafka
+docker-compose up -d kafka
+
+# Upload a file via FTP — it will be published to Kafka topics
+curl -T sample-data/csv/patients.csv ftp://localhost/inbox/kafka-test.csv --user healthcare:healthcare123
+
+# Consume messages from the topic
+docker exec healthcare-kafka /opt/kafka/bin/kafka-console-consumer.sh \
+  --bootstrap-server localhost:9092 \
+  --topic healthcare.patients.ingested \
+  --from-beginning --max-messages 1
+```
+
+### All connectors at once
+
+```bash
+# Start everything
+docker-compose up -d
+
+# Run the application
+mvn quarkus:dev
+
+# Upload files — all connectors fire in parallel
+curl -T sample-data/csv/patients.csv ftp://localhost/inbox/ --user healthcare:healthcare123
+curl -T sample-data/hl7/adt-a01.hl7 ftp://localhost/inbox/ --user healthcare:healthcare123
+
+# Verify each connector received data
+curl -s http://localhost:8080/api/health       # REST
+curl -s http://localhost:8090/fhir/Patient      # FHIR
+docker logs healthcare-mllp-receiver            # MLLP
+# Artemis console: http://localhost:8161        # JMS
 ```
 
 ## Project Structure
