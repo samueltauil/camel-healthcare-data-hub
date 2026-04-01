@@ -62,7 +62,7 @@ public class FhirPublisherRoute extends RouteBuilder {
                 .log("Transforming document ${header.documentId} to FHIR R4 Bundle")
                 .process("fhirBundleProcessor")
                 .doTry()
-                    .toD("fhir://transaction/withBundle?serverUrl=%s&fhirVersion=R4".formatted(fhirServerUrl))
+                    .toD("fhir://transaction/withBundle?serverUrl=%s&fhirVersion=R4&inBody=bundle".formatted(fhirServerUrl))
                     .log("FHIR Bundle posted to %s".formatted(fhirServerUrl))
                 .doCatch(Exception.class)
                     .log(LoggingLevel.WARN,

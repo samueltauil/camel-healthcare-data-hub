@@ -143,15 +143,10 @@ fi
 # -----------------------------------------------------------
 mkdir -p "$FTP_SEED_DIR"
 
-# CSV files — prefix with "synthea-" so the Camel router uses the Synthea CSV parser
+# CSV files — only patients.csv has a matching parser (SyntheaPatient model)
+# Prefix with "synthea-" so the Camel router uses the Synthea CSV parser
 if [[ -f "$SAMPLE_DATA_DIR/csv/synthea/patients.csv" ]]; then
     cp "$SAMPLE_DATA_DIR/csv/synthea/patients.csv" "$FTP_SEED_DIR/synthea-patients.csv"
-fi
-if [[ -f "$SAMPLE_DATA_DIR/csv/synthea/observations.csv" ]]; then
-    cp "$SAMPLE_DATA_DIR/csv/synthea/observations.csv" "$FTP_SEED_DIR/synthea-observations.csv"
-fi
-if [[ -f "$SAMPLE_DATA_DIR/csv/synthea/conditions.csv" ]]; then
-    cp "$SAMPLE_DATA_DIR/csv/synthea/conditions.csv" "$FTP_SEED_DIR/synthea-conditions.csv"
 fi
 
 # HL7 files — copy up to 10
