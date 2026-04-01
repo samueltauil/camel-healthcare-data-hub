@@ -1,6 +1,7 @@
 package com.healthcare.datalayer.route;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Map;
 
 import jakarta.enterprise.context.ApplicationScoped;
@@ -9,7 +10,12 @@ import jakarta.inject.Named;
 
 import org.apache.camel.Exchange;
 import org.apache.camel.builder.RouteBuilder;
+import org.apache.camel.component.jackson.JacksonDataFormat;
 import org.apache.camel.model.rest.RestBindingMode;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 
 import com.healthcare.datalayer.model.ClinicalDocument;
 import com.healthcare.datalayer.model.Observation;
@@ -35,8 +41,7 @@ public class RestApiRoute extends RouteBuilder {
 
         restConfiguration()
                 .component("platform-http")
-                .bindingMode(RestBindingMode.json)
-                .dataFormatProperty("prettyPrint", "true")
+                .bindingMode(RestBindingMode.off)
                 .contextPath("/api")
                 .apiContextPath("/openapi")
                 .apiProperty("api.title", "Healthcare Data Layer API")
@@ -85,9 +90,17 @@ public class RestApiRoute extends RouteBuilder {
 
         // --- Route implementations ---
 
+        ObjectMapper mapper = new ObjectMapper();
+        mapper.registerModule(new JavaTimeModule());
+        mapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+
+        JacksonDataFormat jsonFormat = new JacksonDataFormat();
+        jsonFormat.setObjectMapper(mapper);
+
         from("direct:get-all-patients")
                 .routeId("rest-get-all-patients")
-                .process(exchange -> exchange.getIn().setBody(new ArrayList<>(patientStore.values())));
+                .process(exchange -> exchange.getIn().setBody(new ArrayList<>(patientStore.values())))
+                .marshal(jsonFormat);
 
         from("direct:get-patient")
                 .routeId("rest-get-patient")
@@ -96,15 +109,20 @@ public class RestApiRoute extends RouteBuilder {
                     Patient patient = patientStore.get(id);
                     if (patient == null) {
                         exchange.getIn().setHeader(Exchange.HTTP_RESPONSE_CODE, 404);
-                        exchange.getIn().setBody(Map.of("error", "Patient not found", "patientId", id));
+                        HashMap<String, String> error = new HashMap<>();
+                        error.put("error", "Patient not found");
+                        error.put("patientId", id);
+                        exchange.getIn().setBody(error);
                     } else {
                         exchange.getIn().setBody(patient);
                     }
-                });
+                })
+                .marshal(jsonFormat);
 
         from("direct:get-all-observations")
                 .routeId("rest-get-all-observations")
-                .process(exchange -> exchange.getIn().setBody(new ArrayList<>(observationStore.values())));
+                .process(exchange -> exchange.getIn().setBody(new ArrayList<>(observationStore.values())))
+                .marshal(jsonFormat);
 
         from("direct:get-observations-by-patient")
                 .routeId("rest-get-observations-by-patient")
@@ -113,12 +131,14 @@ public class RestApiRoute extends RouteBuilder {
                     var observations = observationStore.values().stream()
                             .filter(o -> patientId.equals(o.getPatientId()))
                             .toList();
-                    exchange.getIn().setBody(observations);
-                });
+                    exchange.getIn().setBody(new ArrayList<>(observations));
+                })
+                .marshal(jsonFormat);
 
         from("direct:get-all-documents")
                 .routeId("rest-get-all-documents")
-                .process(exchange -> exchange.getIn().setBody(new ArrayList<>(documentStore.values())));
+                .process(exchange -> exchange.getIn().setBody(new ArrayList<>(documentStore.values())))
+                .marshal(jsonFormat);
 
         from("direct:get-document")
                 .routeId("rest-get-document")
@@ -127,20 +147,27 @@ public class RestApiRoute extends RouteBuilder {
                     ClinicalDocument doc = documentStore.get(id);
                     if (doc == null) {
                         exchange.getIn().setHeader(Exchange.HTTP_RESPONSE_CODE, 404);
-                        exchange.getIn().setBody(Map.of("error", "Document not found", "documentId", id));
+                        HashMap<String, String> error = new HashMap<>();
+                        error.put("error", "Document not found");
+                        error.put("documentId", id);
+                        exchange.getIn().setBody(error);
                     } else {
                         exchange.getIn().setBody(doc);
                     }
-                });
+                })
+                .marshal(jsonFormat);
 
         from("direct:health")
                 .routeId("rest-health")
-                .process(exchange -> exchange.getIn().setBody(Map.of(
-                        "status", "UP",
-                        "patients", patientStore.size(),
-                        "observations", observationStore.size(),
-                        "documents", documentStore.size()
-                )));
+                .process(exchange -> {
+                    HashMap<String, Object> health = new HashMap<>();
+                    health.put("status", "UP");
+                    health.put("patients", patientStore.size());
+                    health.put("observations", observationStore.size());
+                    health.put("documents", documentStore.size());
+                    exchange.getIn().setBody(health);
+                })
+                .marshal(jsonFormat);
 
         // SEDA consumer: store data for REST queries (no-op since processors already store)
         from("seda:to-rest-store")
