@@ -7,6 +7,10 @@ import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.component.jackson.JacksonDataFormat;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+
 import com.healthcare.datalayer.model.ClinicalDocument;
 
 /**
@@ -63,6 +67,10 @@ public class KafkaPublisherRoute extends RouteBuilder {
     public void configure() throws Exception {
 
         JacksonDataFormat jsonFormat = new JacksonDataFormat(ClinicalDocument.class);
+        ObjectMapper kafkaMapper = new ObjectMapper();
+        kafkaMapper.registerModule(new JavaTimeModule());
+        kafkaMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+        jsonFormat.setObjectMapper(kafkaMapper);
 
         /*
          * Kafka publisher route.
