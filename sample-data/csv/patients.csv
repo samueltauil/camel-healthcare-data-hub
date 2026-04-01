@@ -1,0 +1,11 @@
+patientId,firstName,lastName,dateOfBirth,gender,ssn,addressLine1,city,state,zipCode,phoneNumber,email,insuranceId,primaryCareProvider
+P001,John,Smith,1985-03-15,M,123-45-6789,100 Main St,Springfield,IL,62701,217-555-0101,john.smith@email.com,INS-10001,Dr. Sarah Johnson
+P002,Jane,Doe,1990-07-22,F,234-56-7890,200 Oak Ave,Chicago,IL,60601,312-555-0102,jane.doe@email.com,INS-10002,Dr. Michael Brown
+P003,Robert,Williams,1978-11-03,M,345-67-8901,300 Elm Blvd,Peoria,IL,61602,309-555-0103,robert.w@email.com,INS-10003,Dr. Sarah Johnson
+P004,Maria,Garcia,1995-01-28,F,456-78-9012,400 Pine Rd,Naperville,IL,60540,630-555-0104,maria.g@email.com,INS-10004,Dr. Emily Chen
+P005,James,Johnson,1962-09-10,M,567-89-0123,500 Cedar Ln,Rockford,IL,61101,815-555-0105,james.j@email.com,INS-10005,Dr. Michael Brown
+P006,Patricia,Brown,1988-04-17,F,678-90-1234,600 Birch Way,Evanston,IL,60201,847-555-0106,patricia.b@email.com,INS-10006,Dr. Emily Chen
+P007,David,Miller,1973-12-05,M,789-01-2345,700 Maple Dr,Champaign,IL,61820,217-555-0107,david.m@email.com,INS-10007,Dr. Sarah Johnson
+P008,Linda,Davis,1999-06-30,F,890-12-3456,800 Walnut St,Bloomington,IL,61701,309-555-0108,linda.d@email.com,INS-10008,Dr. Michael Brown
+P009,Michael,Wilson,1955-08-21,M,901-23-4567,900 Cherry Ave,Decatur,IL,62521,217-555-0109,michael.w@email.com,INS-10009,Dr. Emily Chen
+P010,Elizabeth,Taylor,2001-02-14,F,012-34-5678,1000 Ash Ct,Aurora,IL,60502,630-555-0110,elizabeth.t@email.com,INS-10010,Dr. Sarah Johnson

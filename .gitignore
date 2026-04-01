@@ -1,0 +1,19 @@
+# .gitignore for Quarkus/Maven project
+target/
+.idea/
+*.iml
+.settings/
+.project
+.classpath
+.vscode/
+*.class
+*.jar
+*.log
+.DS_Store
+
+# Synthea runtime data
+.synthea/
+sample-data/csv/synthea/
+sample-data/fhir/synthea/
+sample-data/hl7/synthea/
+sample-data/ftp-seed/
