@@ -39,7 +39,7 @@ graph LR
         AMQ["ActiveMQ Artemis\n:61616 / :8161"]
         KFK["Kafka (KRaft)\n:9092"]
         FHIR_SRV["HAPI FHIR Server\n:8090"]
-        MLLP_RCV["MLLP Receiver\n:2575"]
+        MLLP_RCV["Mirth Connect\n:8443 / :2575"]
     end
 
     APP["Camel Data Layer\n:8080"] --> FTP_SRV
@@ -79,7 +79,7 @@ This starts:
 - **ActiveMQ Artemis** on port 61616 (console: http://localhost:8161)
 - **Kafka** (KRaft) on port 9092
 - **HAPI FHIR Server** on port 8090 (UI: http://localhost:8090)
-- **MLLP Receiver** (socat) on port 2575
+- **MLLP Receiver** — [NextGen Connect (Mirth)](https://github.com/nextgenhealthcare/connect) on port 2575 (dashboard: https://localhost:8443)
 
 ### 2. Generate synthetic data with Synthea
 
@@ -189,44 +189,64 @@ curl -s -X POST http://localhost:8080/soap/PatientService \
 
 ### HL7 MLLP
 
-The MLLP (Minimal Lower Layer Protocol) connector forwards HL7v2 messages over TCP to downstream systems. The docker-compose stack includes a simple `socat`-based MLLP receiver for testing.
+The MLLP (Minimal Lower Layer Protocol) connector forwards HL7v2 messages over TCP to downstream systems. The docker-compose stack includes [NextGen Connect (Mirth Connect)](https://github.com/nextgenhealthcare/connect) — an open-source healthcare integration engine with a web dashboard for inspecting messages.
 
 **How it works:**
 1. An `.hl7` file is uploaded to the FTP `inbox/`
 2. Camel's FTP poller picks it up, the HL7 parser converts it to a HAPI `Message` object
 3. The original HL7 message is preserved and forwarded via MLLP to `mllp://localhost:2575`
-4. The MLLP receiver (socat container) prints the raw message to stdout
+4. Mirth Connect receives the message and displays it in its web dashboard
 
 > **Note:** Only `.hl7` files trigger the MLLP outbound route. CSV files are not forwarded via MLLP.
 
+#### Setting up Mirth Connect as an MLLP listener
+
 ```bash
-# 1. Ensure the MLLP receiver and FTP server are running
-docker-compose up -d ftp mllp-receiver
+# 1. Start Mirth Connect (takes ~30s to initialize)
+docker-compose up -d mirth
+```
 
-# 2. Verify the MLLP receiver is listening
-docker logs healthcare-mllp-receiver
-# → "MLLP receiver listening on port 2575..."
+2. Open the Mirth dashboard at **https://localhost:8443** (accept the self-signed certificate)
+3. Login with `admin` / `admin` (you'll be prompted to change the password on first login)
+4. Create an MLLP listener channel:
+   - Click **Channels** → **New Channel**
+   - **Name:** `HL7 MLLP Listener`
+   - **Source** tab:
+     - **Connector Type:** `TCP Listener`
+     - **Listener Port:** `2575`
+     - **Transmission Mode:** `MLLP`
+   - **Destinations** tab:
+     - Keep the default **Channel Writer** (logs messages to Mirth's internal DB)
+   - Click **Save**, then **Deploy** (play button in the toolbar)
 
-# 3. Generate Synthea data (includes HL7 files) and upload to FTP
+5. Verify the channel is running — it should show a green status indicator.
+
+#### Sending HL7 messages
+
+```bash
+# Generate Synthea data (includes HL7 files) and upload to FTP
 ./scripts/generate-synthea-data.sh
 ./scripts/seed-ftp.sh
 
-# 4. Watch the MLLP receiver for incoming HL7 messages
-docker logs -f healthcare-mllp-receiver
-# You should see raw HL7v2 messages (pipe-delimited segments starting with MSH|^~\&|...)
-
-# 5. Alternatively, send a raw HL7 message directly to the MLLP port to verify the receiver works
-echo -e "\x0bMSH|^~\\&|TEST|TEST|TEST|TEST|20260401||ADT^A01|123|P|2.5\rPID|1||P999||Test^Patient\r\x1c\r" | nc localhost 2575
-
-# 6. Check the application logs for MLLP delivery confirmation
-# Look for: "HL7 message sent via MLLP to localhost:2575"
-# Or warnings: "MLLP delivery failed to localhost:2575" if the receiver is down
+# Or send a raw HL7 test message directly to Mirth
+echo -e "\x0bMSH|^~\\&|TEST|TEST|TEST|TEST|20260401||ADT^A01|123|P|2.5\rPID|1||P999||Test^Patient\r\x1c\r" \
+  | nc localhost 2575
 ```
 
+#### Inspecting messages in the dashboard
+
+1. In Mirth, go to **Dashboard** → click on the `HL7 MLLP Listener` channel
+2. Click **Messages** in the left panel
+3. You'll see each HL7 message with:
+   - **Raw** — the original pipe-delimited message
+   - **Parsed** — a tree view of segments (MSH, PID, PV1, etc.)
+   - **Mapped** — extracted fields
+   - **Status** — SENT, QUEUED, or ERROR
+
 **Troubleshooting:**
-- **No messages arriving?** — Ensure the file uploaded has a `.hl7` extension. CSV files skip the MLLP route.
-- **"MLLP delivery failed"?** — The MLLP receiver container may not be running. Check with `docker ps | grep mllp`.
-- **Want a real MLLP listener?** — Replace the socat container with [HAPI Test Panel](https://hapifhir.github.io/hapi-hl7v2/hapi-testpanel/) or any HL7 interface engine.
+- **No messages arriving?** — Ensure the file has a `.hl7` extension and the Mirth channel is deployed (green status).
+- **"MLLP delivery failed" in app logs?** — Mirth may still be starting. Wait ~30s after `docker-compose up` and ensure the channel is deployed.
+- **Connection refused?** — Check `docker ps | grep mirth` and verify port 2575 is mapped.
 
 ### FHIR R4
 

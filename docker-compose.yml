@@ -77,18 +77,18 @@ services:
     restart: unless-stopped
 
   # =========================================
-  # HL7 MLLP Test Receiver (optional)
-  # Using a simple netcat listener for dev
+  # NextGen Connect (Mirth Connect)
+  # HL7 Integration Engine + Web Dashboard
   # =========================================
-  mllp-receiver:
-    image: alpine:3.19
-    container_name: healthcare-mllp-receiver
+  mirth:
+    image: nextgenhealthcare/connect:4.5.2
+    container_name: healthcare-mirth
     ports:
-      - "2575:2575"
-    command: >
-      sh -c "apk add --no-cache socat &&
-             echo 'MLLP receiver listening on port 2575...' &&
-             socat TCP-LISTEN:2575,reuseaddr,fork STDOUT"
+      - "8443:8443"     # Web Dashboard (HTTPS)
+      - "2575:2575"     # MLLP Listener (configure in Mirth)
+    environment:
+      DATABASE: derby
+      VMOPTIONS: "-Xmx512m"
     restart: unless-stopped
 
 volumes:
