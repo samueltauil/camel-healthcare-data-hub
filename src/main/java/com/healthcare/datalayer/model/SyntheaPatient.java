@@ -59,80 +59,84 @@ public class SyntheaPatient {
     @DataField(pos = 8)
     private String firstName;
 
-    // Synthea column 9 (LAST): last/family name
+    // Synthea column 9 (MIDDLE): middle name
     @DataField(pos = 9)
+    private String middleName;
+
+    // Synthea column 10 (LAST): last/family name
+    @DataField(pos = 10)
     private String lastName;
 
-    // Synthea column 10 (SUFFIX): name suffix (e.g. "Jr.", "III")
-    @DataField(pos = 10)
+    // Synthea column 11 (SUFFIX): name suffix (e.g. "Jr.", "III")
+    @DataField(pos = 11)
     private String suffix;
 
-    // Synthea column 11 (MAIDEN): maiden name
-    @DataField(pos = 11)
+    // Synthea column 12 (MAIDEN): maiden name
+    @DataField(pos = 12)
     private String maiden;
 
-    // Synthea column 12 (MARITAL): marital status code (e.g. "M", "S")
-    @DataField(pos = 12)
+    // Synthea column 13 (MARITAL): marital status code (e.g. "M", "S")
+    @DataField(pos = 13)
     private String marital;
 
-    // Synthea column 13 (RACE): race
-    @DataField(pos = 13)
+    // Synthea column 14 (RACE): race
+    @DataField(pos = 14)
     private String race;
 
-    // Synthea column 14 (ETHNICITY): ethnicity
-    @DataField(pos = 14)
+    // Synthea column 15 (ETHNICITY): ethnicity
+    @DataField(pos = 15)
     private String ethnicity;
 
-    // Synthea column 15 (GENDER): gender code ("M" or "F")
-    @DataField(pos = 15)
+    // Synthea column 16 (GENDER): gender code ("M" or "F")
+    @DataField(pos = 16)
     private String gender;
 
-    // Synthea column 16 (BIRTHPLACE): city/state of birth
-    @DataField(pos = 16)
+    // Synthea column 17 (BIRTHPLACE): city/state of birth
+    @DataField(pos = 17)
     private String birthplace;
 
-    // Synthea column 17 (ADDRESS): street address
-    @DataField(pos = 17)
+    // Synthea column 18 (ADDRESS): street address
+    @DataField(pos = 18)
     private String address;
 
-    // Synthea column 18 (CITY): city name
-    @DataField(pos = 18)
+    // Synthea column 19 (CITY): city name
+    @DataField(pos = 19)
     private String city;
 
-    // Synthea column 19 (STATE): state abbreviation
-    @DataField(pos = 19)
+    // Synthea column 20 (STATE): state abbreviation
+    @DataField(pos = 20)
     private String state;
 
-    // Synthea column 20 (COUNTY): county name
-    @DataField(pos = 20)
+    // Synthea column 21 (COUNTY): county name
+    @DataField(pos = 21)
     private String county;
 
-    // Synthea column 21 (FIPS): FIPS county code
-    @DataField(pos = 21)
+    // Synthea column 22 (FIPS): FIPS county code
+    @DataField(pos = 22)
     private String fips;
 
-    // Synthea column 22 (ZIP): ZIP/postal code
-    @DataField(pos = 22)
+    // Synthea column 23 (ZIP): ZIP/postal code
+    @DataField(pos = 23)
     private String zip;
 
-    // Synthea column 23 (LAT): latitude of patient address
-    @DataField(pos = 23)
+    // Synthea column 24 (LAT): latitude of patient address
+    @DataField(pos = 24)
     private String lat;
 
-    // Synthea column 24 (LON): longitude of patient address
-    @DataField(pos = 24)
+    // Synthea column 25 (LON): longitude of patient address
+    @DataField(pos = 25)
     private String lon;
 
-    // Synthea column 25 (HEALTHCARE_EXPENSES): total healthcare expenses
-    @DataField(pos = 25)
+    // Synthea column 26 (HEALTHCARE_EXPENSES): total healthcare expenses
+    @DataField(pos = 26)
     private String healthcareExpenses;
 
-    // Synthea column 26 (HEALTHCARE_COVERAGE): total healthcare coverage
-    @DataField(pos = 26)
+    // Synthea column 27 (HEALTHCARE_COVERAGE): total healthcare coverage
+    @DataField(pos = 27)
     private String healthcareCoverage;
 
-    // Synthea column 27 (INCOME): annual income
-    @DataField(pos = 27)
+    // Synthea column 28 (INCOME): annual income
+    @DataField(pos = 28)
     private String income;
 
     public SyntheaPatient() {}
@@ -184,6 +188,9 @@ public class SyntheaPatient {
 
     public String getFirstName() { return firstName; }
     public void setFirstName(String firstName) { this.firstName = firstName; }
+
+    public String getMiddleName() { return middleName; }
+    public void setMiddleName(String middleName) { this.middleName = middleName; }
 
     public String getLastName() { return lastName; }
     public void setLastName(String lastName) { this.lastName = lastName; }
