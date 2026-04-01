@@ -2,8 +2,12 @@
 # ============================================================
 # seed-ftp.sh
 #
-# Uploads generated Synthea data files to the FTP server
-# for processing by the Camel Data Layer application.
+# Uploads sample data files to the FTP server for processing
+# by the Camel Data Layer application.
+#
+# Uploads:
+#   1. Bundled sample files (patients.csv, adt-a01.hl7) — always
+#   2. Synthea-generated files from ftp-seed/ — if available
 #
 # Usage:
 #   ./scripts/seed-ftp.sh [ftp_host] [ftp_user] [ftp_pass]
@@ -19,35 +23,55 @@ FTP_USER="${2:-healthcare}"
 FTP_PASS="${3:-healthcare123}"
 FTP_DIR="inbox"
 
-SEED_DIR="$PROJECT_DIR/sample-data/ftp-seed"
-
 GREEN='\033[0;32m'
-RED='\033[0;31m'
+YELLOW='\033[1;33m'
 NC='\033[0m'
 
 info() { echo -e "${GREEN}[INFO]${NC}  $*"; }
-err()  { echo -e "${RED}[ERR]${NC}   $*"; }
+warn() { echo -e "${YELLOW}[WARN]${NC}  $*"; }
 
-if [[ ! -d "$SEED_DIR" ]] || [[ -z "$(ls -A "$SEED_DIR" 2>/dev/null)" ]]; then
-    err "No seed data found in $SEED_DIR"
-    err "Run ./scripts/generate-synthea-data.sh first"
-    exit 1
-fi
+upload_file() {
+    local file="$1"
+    local filename="$(basename "$file")"
+    info "  Uploading: $filename"
+    curl -T "$file" "ftp://$FTP_HOST/$FTP_DIR/$filename" \
+        --user "$FTP_USER:$FTP_PASS" \
+        --silent --show-error
+    count=$((count + 1))
+}
 
-info "Uploading seed data to ftp://$FTP_HOST/$FTP_DIR/ ..."
+info "Uploading sample data to ftp://$FTP_HOST/$FTP_DIR/ ..."
+echo ""
 
 count=0
-for file in "$SEED_DIR"/*; do
-    if [[ -f "$file" ]]; then
-        filename="$(basename "$file")"
-        info "  Uploading: $filename"
-        curl -T "$file" "ftp://$FTP_HOST/$FTP_DIR/$filename" \
-            --user "$FTP_USER:$FTP_PASS" \
-            --silent --show-error
-        count=$((count + 1))
-    fi
-done
 
-info ""
+# 1. Bundled sample files (always available)
+info "— Bundled sample data —"
+
+if [[ -f "$PROJECT_DIR/sample-data/csv/patients.csv" ]]; then
+    upload_file "$PROJECT_DIR/sample-data/csv/patients.csv"
+fi
+
+if [[ -f "$PROJECT_DIR/sample-data/hl7/adt-a01.hl7" ]]; then
+    upload_file "$PROJECT_DIR/sample-data/hl7/adt-a01.hl7"
+fi
+
+# 2. Synthea-generated files (if generate-synthea-data.sh has been run)
+SEED_DIR="$PROJECT_DIR/sample-data/ftp-seed"
+
+if [[ -d "$SEED_DIR" ]] && [[ -n "$(ls -A "$SEED_DIR" 2>/dev/null)" ]]; then
+    echo ""
+    info "— Synthea-generated data —"
+    for file in "$SEED_DIR"/*; do
+        if [[ -f "$file" ]]; then
+            upload_file "$file"
+        fi
+    done
+else
+    echo ""
+    warn "No Synthea data found. Run ./scripts/generate-synthea-data.sh to generate more."
+fi
+
+echo ""
 info "Uploaded $count file(s) to ftp://$FTP_HOST/$FTP_DIR/"
 info "The Camel FTP poller will pick them up automatically."
