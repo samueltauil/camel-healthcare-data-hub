@@ -1,6 +1,23 @@
-# Camel Data Layer — Healthcare Flat-File Integration Hub
+<div align="center">
 
-A Java 21 / Quarkus project using Apache Camel to ingest flat files (CSV, HL7v2) from an FTP server and route them to multiple healthcare-standard output connectors.
+# 🏥 Camel Healthcare Data Hub
+
+**A turnkey integration platform that bridges legacy healthcare flat files with modern APIs and messaging systems.**
+
+[![Java 21](https://img.shields.io/badge/Java-21-orange?logo=openjdk)](https://openjdk.org/)
+[![Quarkus](https://img.shields.io/badge/Quarkus-3.17-blue?logo=quarkus)](https://quarkus.io/)
+[![Apache Camel](https://img.shields.io/badge/Apache%20Camel-4.9-red?logo=apache-camel)](https://camel.apache.org/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+
+---
+
+Ingest **CSV** and **HL7v2** flat files from an FTP server and fan them out — in parallel — to
+**REST**, **SOAP**, **HL7 MLLP**, **FHIR R4**, **JMS/ActiveMQ**, and **Kafka**.
+Synthetic patient data powered by [Synthea](https://github.com/synthetichealth/synthea).
+
+</div>
+
+---
 
 ## Architecture
 
