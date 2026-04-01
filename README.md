@@ -103,9 +103,7 @@ This downloads Synthea, generates CSV/HL7/FHIR data, and places it in `sample-da
 mvn quarkus:dev
 ```
 
-> **Note:** 10 sample patients from `sample-data/csv/patients.csv` are loaded automatically on startup — no FTP or docker-compose needed to see data in the REST/SOAP endpoints.
-
-### 4. Seed the FTP server with additional data
+### 4. Seed the FTP server with data
 
 ```bash
 # Upload Synthea-generated files
@@ -116,16 +114,25 @@ curl -T sample-data/csv/patients.csv ftp://localhost/inbox/ --user healthcare:he
 curl -T sample-data/hl7/adt-a01.hl7 ftp://localhost/inbox/ --user healthcare:healthcare123
 ```
 
+Data flows through the pipeline only when files are uploaded to the FTP `inbox/` directory. Once a file is ingested, it is parsed and fanned out to all output connectors in parallel.
+
 ## Testing the Output Connectors
 
-After starting the application with `mvn quarkus:dev`, you can verify each connector:
+Start the full stack, run the app, and upload a file to trigger the pipeline:
+
+```bash
+docker-compose up -d
+mvn quarkus:dev
+
+# Upload a CSV file — triggers all connectors in parallel
+curl -T sample-data/csv/patients.csv ftp://localhost/inbox/ --user healthcare:healthcare123
+```
 
 ### REST API
 
 ```bash
 # Health check — shows counts for all in-memory stores
 curl -s http://localhost:8080/api/health | python3 -m json.tool
-# → {"status": "UP", "patients": 10, "observations": 0, "documents": 1}
 
 # List all patients
 curl -s http://localhost:8080/api/patients | python3 -m json.tool
@@ -184,12 +191,9 @@ curl -s -X POST http://localhost:8080/soap/PatientService \
   </soapenv:Envelope>'
 ```
 
-### HL7 MLLP (requires docker-compose)
+### HL7 MLLP
 
 ```bash
-# Start the MLLP receiver
-docker-compose up -d mllp-receiver
-
 # Upload an HL7 file to FTP — it will be parsed and forwarded via MLLP
 curl -T sample-data/hl7/adt-a01.hl7 ftp://localhost/inbox/ --user healthcare:healthcare123
 
@@ -197,69 +201,42 @@ curl -T sample-data/hl7/adt-a01.hl7 ftp://localhost/inbox/ --user healthcare:hea
 docker logs -f healthcare-mllp-receiver
 ```
 
-### FHIR R4 (requires docker-compose)
+### FHIR R4
 
 ```bash
-# Start the HAPI FHIR server
-docker-compose up -d fhir
+# Wait for FHIR server to be ready (~30s after docker-compose up)
+curl -s http://localhost:8090/fhir/metadata | python3 -m json.tool | head -5
 
-# Wait for FHIR server to start, then check ingested patients
-# (patients are auto-pushed as FHIR Bundles when files are ingested via FTP)
+# After uploading a file via FTP, check ingested patients
 curl -s http://localhost:8090/fhir/Patient | python3 -m json.tool | head -20
 
 # Browse the FHIR server UI
 open http://localhost:8090
 ```
 
-### JMS / ActiveMQ Artemis (requires docker-compose)
+### JMS / ActiveMQ Artemis
 
 ```bash
-# Start ActiveMQ Artemis
-docker-compose up -d activemq
-
-# Upload a file via FTP — it will be published to JMS queues/topics
-curl -T sample-data/csv/patients.csv ftp://localhost/inbox/jms-test.csv --user healthcare:healthcare123
-
-# Check the Artemis web console for messages
+# Open the Artemis web console
 open http://localhost:8161
 # Login: artemis / artemis
-# Navigate to Queues → queue.patients to see messages
+
+# After uploading a file via FTP, check for messages:
+# 1. Click "Queues" in the left menu
+# 2. Look for address "queue.patients" (anycast) and "topic.clinical-events" (multicast)
+#
+# Queues are auto-created by Artemis on first message delivery.
+# If no file has been uploaded via FTP yet, the queues will not appear.
 ```
 
-### Kafka (requires docker-compose)
+### Kafka
 
 ```bash
-# Start Kafka
-docker-compose up -d kafka
-
-# Upload a file via FTP — it will be published to Kafka topics
-curl -T sample-data/csv/patients.csv ftp://localhost/inbox/kafka-test.csv --user healthcare:healthcare123
-
-# Consume messages from the topic
+# After uploading a file via FTP, consume messages from the topic
 docker exec healthcare-kafka /opt/kafka/bin/kafka-console-consumer.sh \
   --bootstrap-server localhost:9092 \
   --topic healthcare.patients.ingested \
   --from-beginning --max-messages 1
-```
-
-### All connectors at once
-
-```bash
-# Start everything
-docker-compose up -d
-
-# Run the application
-mvn quarkus:dev
-
-# Upload files — all connectors fire in parallel
-curl -T sample-data/csv/patients.csv ftp://localhost/inbox/ --user healthcare:healthcare123
-curl -T sample-data/hl7/adt-a01.hl7 ftp://localhost/inbox/ --user healthcare:healthcare123
-
-# Verify each connector received data
-curl -s http://localhost:8080/api/health       # REST
-curl -s http://localhost:8090/fhir/Patient      # FHIR
-docker logs healthcare-mllp-receiver            # MLLP
-# Artemis console: http://localhost:8161        # JMS
 ```
 
 ## Project Structure
@@ -323,6 +300,40 @@ docker run -p 8080:8080 camel-data-layer
 - `sample-data/ftp-seed/` — Pre-selected files ready for FTP upload
 
 Files prefixed with `synthea-` are auto-detected and parsed using the Synthea CSV schema.
+
+## Camel Connectors In Detail
+
+### Inbound
+
+| Component | Maven Artifact | Description |
+|-----------|---------------|-------------|
+| [FTP](https://camel.apache.org/components/4.x/ftp-component.html) | `camel-quarkus-ftp` | Polls a remote FTP directory for new files. Supports idempotent consumer (skip already-seen files), `move` to `.done`/`.error` subdirectories, and configurable polling interval. Uses Apache Commons Net under the hood. |
+
+### Parsing
+
+| Component | Maven Artifact | Description |
+|-----------|---------------|-------------|
+| [Bindy (CSV)](https://camel.apache.org/components/4.x/dataformats/bindy-dataformat.html) | `camel-quarkus-bindy` | Unmarshals delimited flat files (CSV) into annotated Java POJOs using `@CsvRecord` and `@DataField` annotations. Maps column positions to fields with type conversion (dates, numbers). |
+| [HL7v2](https://camel.apache.org/components/4.x/dataformats/hl7-dataformat.html) | `camel-quarkus-hl7` | Parses HL7v2 pipe-delimited messages (ADT, ORU, etc.) using the [HAPI](https://hapifhir.github.io/hapi-hl7v2/) library. Converts raw HL7 text into strongly-typed Java objects (`ADT_A01`, `PID`, `MSH` segments). Supports HL7 v2.1–v2.8. |
+
+### Outbound
+
+| Component | Maven Artifact | Description |
+|-----------|---------------|-------------|
+| [REST DSL](https://camel.apache.org/components/4.x/others/rest.html) | `camel-quarkus-rest` + `camel-quarkus-platform-http` | Defines REST endpoints using Camel's REST DSL. Runs on Quarkus' Vert.x HTTP server via `platform-http`. Includes auto-generated OpenAPI spec at `/api/openapi` via `camel-quarkus-openapi-java`. |
+| [CXF (SOAP)](https://quarkiverse.github.io/quarkiverse-docs/quarkus-cxf/dev/) | `quarkus-cxf` | Exposes JAX-WS annotated interfaces as SOAP web services with auto-generated WSDL. Uses Apache CXF on Quarkus. The `PatientService` interface is implemented as a CDI bean and served at `/soap/PatientService`. |
+| [MLLP](https://camel.apache.org/components/4.x/mllp-component.html) | `camel-quarkus-mllp` | Sends HL7v2 messages over TCP using the Minimal Lower Layer Protocol — the standard transport for HL7v2 in healthcare. Wraps messages in MLLP framing (start block `0x0B`, end block `0x1C` + `0x0D`). Built on Netty for non-blocking I/O. |
+| [FHIR](https://camel.apache.org/components/4.x/fhir-component.html) | `camel-quarkus-fhir` + `hapi-fhir-structures-r4` | Interacts with HL7 FHIR R4 REST servers. This project transforms domain `Patient` objects into FHIR R4 `Patient` resources, bundles them into a FHIR `Bundle` (transaction type), and POSTs them to a HAPI FHIR server. Uses the HAPI FHIR client under the hood. |
+| [JMS](https://camel.apache.org/components/4.x/jms-component.html) | `camel-quarkus-jms` + `quarkus-artemis-jms` | Publishes messages to JMS queues and topics on ActiveMQ Artemis. The `quarkus-artemis-jms` extension manages the `ConnectionFactory`. Messages are serialized as JSON. Queues are **auto-created by Artemis** on first delivery — they will not appear in the Artemis console until a file has been ingested via FTP. |
+| [Kafka](https://camel.apache.org/components/4.x/kafka-component.html) | `camel-quarkus-kafka` | Publishes messages to Apache Kafka topics. Each ingested document is serialized as JSON and keyed by `documentId`. Topics are auto-created by Kafka's default configuration. |
+
+### Internal Routing
+
+| Component | Maven Artifact | Description |
+|-----------|---------------|-------------|
+| [Direct](https://camel.apache.org/components/4.x/direct-component.html) | `camel-quarkus-direct` | Synchronous in-memory routing between Camel routes. Used to connect the FTP poller to the parsers and the parsers to the fan-out. |
+| [SEDA](https://camel.apache.org/components/4.x/seda-component.html) | `camel-quarkus-seda` | Asynchronous in-memory queue between routes. Used in the fan-out to decouple the output connectors — each connector processes messages independently and in parallel. |
+| [Jackson](https://camel.apache.org/components/4.x/dataformats/jackson-dataformat.html) | `camel-quarkus-jackson` | Marshals Java objects to JSON. Configured with `JavaTimeModule` to handle `LocalDate`/`LocalDateTime` serialization. Used in REST, JMS, and Kafka routes. |
 
 ## Technology Stack
 

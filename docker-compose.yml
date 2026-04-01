@@ -29,12 +29,13 @@ services:
     image: apache/activemq-artemis:2.37.0
     container_name: healthcare-activemq
     ports:
-      - "61616:61616"   # AMQP / Core
+      - "61616:61616"   # Core / AMQP
       - "8161:8161"     # Web Console
     environment:
       ARTEMIS_USER: "artemis"
       ARTEMIS_PASSWORD: "artemis"
-      AMQ_EXTRA_ARGS: "--relax-jolokia"
+      ANONYMOUS_LOGIN: "true"
+      EXTRA_ARGS: "--http-host 0.0.0.0 --relax-jolokia"
     restart: unless-stopped
 
   # =========================================
