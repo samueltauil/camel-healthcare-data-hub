@@ -11,6 +11,20 @@ import jakarta.jws.WebService;
 
 import com.healthcare.datalayer.model.Patient;
 
+/**
+ * CDI-managed implementation of the {@link PatientService} SOAP web service.
+ *
+ * <p>Delegates all operations to the CDI-produced {@code patientStore} map, which is
+ * populated at runtime by the Camel ingestion processors
+ * ({@link com.healthcare.datalayer.processor.CsvPatientProcessor},
+ * {@link com.healthcare.datalayer.processor.Hl7MessageProcessor},
+ * {@link com.healthcare.datalayer.processor.SyntheaCsvProcessor}).</p>
+ *
+ * <p>Exposed via Quarkus CXF on port {@code PatientServicePort} under the
+ * {@code http://healthcare.com/datalayer/soap} target namespace.</p>
+ *
+ * @see PatientService
+ */
 @WebService(
         serviceName = "PatientService",
         portName = "PatientServicePort",
@@ -24,11 +38,13 @@ public class PatientServiceImpl implements PatientService {
     @Named("patientStore")
     Map<String, Patient> patientStore;
 
+    /** {@inheritDoc} */
     @Override
     public Patient getPatient(String patientId) {
         return patientStore.get(patientId);
     }
 
+    /** {@inheritDoc} */
     @Override
     public List<Patient> searchPatients(String lastName) {
         return patientStore.values().stream()
@@ -37,6 +53,7 @@ public class PatientServiceImpl implements PatientService {
                 .toList();
     }
 
+    /** {@inheritDoc} */
     @Override
     public List<Patient> getAllPatients() {
         return new ArrayList<>(patientStore.values());

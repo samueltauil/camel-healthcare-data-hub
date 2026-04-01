@@ -7,7 +7,21 @@ import java.util.List;
 import com.fasterxml.jackson.annotation.JsonFormat;
 
 /**
- * Wrapper that groups patients and observations from a single ingested file.
+ * Aggregate wrapper that groups {@link Patient} and {@link Observation} records
+ * originating from a single ingested source file.
+ *
+ * <p>A {@code ClinicalDocument} is assembled by each ingestion processor
+ * ({@code CsvPatientProcessor}, {@code SyntheaCsvProcessor}, {@code Hl7MessageProcessor})
+ * and stored in the in-memory {@code documentStore}. After creation it is fanned out to
+ * multiple downstream Camel routes:
+ * <ul>
+ *   <li>{@code seda:to-jms} &mdash; marshalled to JSON and published to a JMS queue</li>
+ *   <li>{@code seda:to-kafka} &mdash; marshalled to JSON and published to a Kafka topic</li>
+ *   <li>{@code seda:to-fhir} &mdash; converted to a FHIR Bundle by {@code FhirBundleProcessor}</li>
+ *   <li>{@code seda:to-mllp} &mdash; forwarded to an MLLP outbound route</li>
+ * </ul>
+ *
+ * <p>The REST API also returns documents directly from the store.
  */
 public class ClinicalDocument {
 
@@ -52,7 +66,10 @@ public class ClinicalDocument {
     public List<Observation> getObservations() { return observations; }
     public void setObservations(List<Observation> observations) { this.observations = observations; }
 
+    /** Appends a patient to this document's patient list. */
     public void addPatient(Patient patient) { this.patients.add(patient); }
+
+    /** Appends an observation to this document's observation list. */
     public void addObservation(Observation observation) { this.observations.add(observation); }
 
     @Override

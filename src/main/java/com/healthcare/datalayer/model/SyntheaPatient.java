@@ -10,101 +10,143 @@ import org.apache.camel.dataformat.bindy.annotation.DataField;
 import com.fasterxml.jackson.annotation.JsonFormat;
 
 /**
- * Maps the Synthea-generated patients.csv format.
- * Synthea CSV columns: Id, BIRTHDATE, DEATHDATE, SSN, DRIVERS, PASSPORT,
- * PREFIX, FIRST, LAST, SUFFIX, MAIDEN, MARITAL, RACE, ETHNICITY, GENDER,
- * BIRTHPLACE, ADDRESS, CITY, STATE, COUNTY, FIPS, ZIP, LAT, LON,
- * HEALTHCARE_EXPENSES, HEALTHCARE_COVERAGE, INCOME
+ * Bindy CSV model that maps the Synthea-generated {@code patients.csv} format.
+ *
+ * <p>Synthea is a synthetic patient generator; its CSV export uses a fixed 27-column layout:
+ * <em>Id, BIRTHDATE, DEATHDATE, SSN, DRIVERS, PASSPORT, PREFIX, FIRST, LAST, SUFFIX,
+ * MAIDEN, MARITAL, RACE, ETHNICITY, GENDER, BIRTHPLACE, ADDRESS, CITY, STATE, COUNTY,
+ * FIPS, ZIP, LAT, LON, HEALTHCARE_EXPENSES, HEALTHCARE_COVERAGE, INCOME</em>.
+ *
+ * <p>This class is unmarshalled on the {@code direct:process-synthea-csv} Camel route via
+ * Bindy and then immediately converted to the normalized {@link Patient} domain model by
+ * {@link #toDomainPatient()} inside {@code SyntheaCsvProcessor}. It is not persisted itself.
+ *
+ * @see Patient
  */
 @CsvRecord(separator = ",", skipFirstLine = true)
 public class SyntheaPatient {
 
+    // Synthea column 1 (Id): unique patient UUID
     @DataField(pos = 1)
     private String id;
 
+    // Synthea column 2 (BIRTHDATE): date of birth in yyyy-MM-dd
     @DataField(pos = 2, pattern = "yyyy-MM-dd")
     @JsonFormat(pattern = "yyyy-MM-dd")
     private LocalDate birthDate;
 
+    // Synthea column 3 (DEATHDATE): date of death, empty if alive
     @DataField(pos = 3)
     private String deathDate;
 
+    // Synthea column 4 (SSN): Social Security Number
     @DataField(pos = 4)
     private String ssn;
 
+    // Synthea column 5 (DRIVERS): driver's license number
     @DataField(pos = 5)
     private String drivers;
 
+    // Synthea column 6 (PASSPORT): passport number
     @DataField(pos = 6)
     private String passport;
 
+    // Synthea column 7 (PREFIX): name prefix (e.g. "Mr.", "Mrs.")
     @DataField(pos = 7)
     private String prefix;
 
+    // Synthea column 8 (FIRST): first/given name
     @DataField(pos = 8)
     private String firstName;
 
+    // Synthea column 9 (LAST): last/family name
     @DataField(pos = 9)
     private String lastName;
 
+    // Synthea column 10 (SUFFIX): name suffix (e.g. "Jr.", "III")
     @DataField(pos = 10)
     private String suffix;
 
+    // Synthea column 11 (MAIDEN): maiden name
     @DataField(pos = 11)
     private String maiden;
 
+    // Synthea column 12 (MARITAL): marital status code (e.g. "M", "S")
     @DataField(pos = 12)
     private String marital;
 
+    // Synthea column 13 (RACE): race
     @DataField(pos = 13)
     private String race;
 
+    // Synthea column 14 (ETHNICITY): ethnicity
     @DataField(pos = 14)
     private String ethnicity;
 
+    // Synthea column 15 (GENDER): gender code ("M" or "F")
     @DataField(pos = 15)
     private String gender;
 
+    // Synthea column 16 (BIRTHPLACE): city/state of birth
     @DataField(pos = 16)
     private String birthplace;
 
+    // Synthea column 17 (ADDRESS): street address
     @DataField(pos = 17)
     private String address;
 
+    // Synthea column 18 (CITY): city name
     @DataField(pos = 18)
     private String city;
 
+    // Synthea column 19 (STATE): state abbreviation
     @DataField(pos = 19)
     private String state;
 
+    // Synthea column 20 (COUNTY): county name
     @DataField(pos = 20)
     private String county;
 
+    // Synthea column 21 (FIPS): FIPS county code
     @DataField(pos = 21)
     private String fips;
 
+    // Synthea column 22 (ZIP): ZIP/postal code
     @DataField(pos = 22)
     private String zip;
 
+    // Synthea column 23 (LAT): latitude of patient address
     @DataField(pos = 23)
     private String lat;
 
+    // Synthea column 24 (LON): longitude of patient address
     @DataField(pos = 24)
     private String lon;
 
+    // Synthea column 25 (HEALTHCARE_EXPENSES): total healthcare expenses
     @DataField(pos = 25)
     private String healthcareExpenses;
 
+    // Synthea column 26 (HEALTHCARE_COVERAGE): total healthcare coverage
     @DataField(pos = 26)
     private String healthcareCoverage;
 
+    // Synthea column 27 (INCOME): annual income
     @DataField(pos = 27)
     private String income;
 
     public SyntheaPatient() {}
 
     /**
-     * Converts this Synthea-format patient to the normalized domain model.
+     * Converts this Synthea-format patient record into the normalized {@link Patient} domain model.
+     *
+     * <p>Maps the Synthea-specific fields to their domain equivalents:
+     * {@code id → patientId}, {@code birthDate → dateOfBirth},
+     * {@code address → addressLine1}, {@code zip → zipCode}.
+     * Gender is normalized to a single uppercase letter ({@code "M"} or {@code "F"}).
+     * The {@link Patient#getIngestedAt() ingestedAt} timestamp is set to the current time.
+     *
+     * @return a new {@link Patient} populated from this Synthea record
      */
     public Patient toDomainPatient() {
         Patient patient = new Patient();

@@ -8,40 +8,64 @@ import org.apache.camel.dataformat.bindy.annotation.DataField;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
 
+/**
+ * Represents a clinical observation (lab result, vital sign, etc.) linked to a patient.
+ *
+ * <p>Annotated as a Camel Bindy CSV record for potential unmarshalling from observation CSV files.
+ * Observations are included in {@link ClinicalDocument} instances and are converted to FHIR
+ * Observation resources by {@code FhirBundleProcessor}. They are also served via the REST API
+ * from the in-memory {@code observationStore}.
+ *
+ * <p>The coding fields ({@link #code}, {@link #codeSystem}, {@link #displayName}) follow
+ * standard terminology conventions (e.g. LOINC, SNOMED CT).
+ *
+ * <p>Equality is based solely on {@link #observationId}.
+ */
 @CsvRecord(separator = ",", skipFirstLine = true)
 public class Observation {
 
+    // CSV column 1: unique observation identifier
     @DataField(pos = 1)
     private String observationId;
 
+    // CSV column 2: ID of the patient this observation belongs to
     @DataField(pos = 2)
     private String patientId;
 
+    // CSV column 3: coded value (e.g. LOINC code)
     @DataField(pos = 3)
     private String code;
 
+    // CSV column 4: coding system URI (e.g. "http://loinc.org")
     @DataField(pos = 4)
     private String codeSystem;
 
+    // CSV column 5: human-readable name for the code
     @DataField(pos = 5)
     private String displayName;
 
+    // CSV column 6: observed value (numeric or textual)
     @DataField(pos = 6)
     private String value;
 
+    // CSV column 7: unit of measure (e.g. "mg/dL", "mmHg")
     @DataField(pos = 7)
     private String unit;
 
+    // CSV column 8: observation status (e.g. "final", "preliminary")
     @DataField(pos = 8)
     private String status;
 
+    // CSV column 9: observation category (e.g. "vital-signs", "laboratory")
     @DataField(pos = 9)
     private String category;
 
+    // CSV column 10: date/time the observation was clinically effective
     @DataField(pos = 10, pattern = "yyyy-MM-dd'T'HH:mm:ss")
     @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss")
     private LocalDateTime effectiveDateTime;
 
+    // CSV column 11: name of the practitioner who performed the observation
     @DataField(pos = 11)
     private String performerName;
 
